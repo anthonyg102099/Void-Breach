@@ -52,6 +52,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
 #nmInput:focus{border-color:var(--cy)}
 #bars2{position:absolute;left:50%;transform:translateX(-50%);bottom:64px;width:min(340px,60vw);z-index:5;pointer-events:none;display:none}
 #bars2 .bar{height:8px}
+textarea{font:inherit;font-size:11px;background:#0a0a16;color:var(--gn);border:1px solid var(--line);
+  border-radius:8px;padding:8px;width:min(430px,86vw);min-height:56px;margin:6px auto;display:block;resize:vertical}
+#waitOv{position:absolute;inset:0;z-index:18;display:none;align-items:center;justify-content:center;
+  background:rgba(4,4,10,.72);font-size:clamp(16px,3vw,26px);letter-spacing:3px;color:var(--yl);text-align:center;padding:20px}
 .pw.bad{border-color:var(--rd);color:var(--rd)}
 #bossFill{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff2fb3,#ff5c5c)}
 #bossSub{color:var(--yl);font-size:12px;margin-top:3px;min-height:15px}
@@ -147,6 +151,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
 </div>
 <div id="powers"></div>
 <div id="banner"><h1 id="banH"></h1><p id="banP"></p></div>
+<div id="waitOv">WAITING…</div>
 <div class="hint">WASD move · mouse aim · click/SPACE fire<br>SHIFT dash · P store · ESC pause · M mute</div>
 <div class="stick" id="stickL"><div class="nub"></div></div>
 <div class="stick" id="stickR"><div class="nub"></div></div>
@@ -156,7 +161,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
   <div class="subtitle">A BULLET-HELL ARCADE RUN</div>
   <button class="btn" id="btnStart">▶ &nbsp;START RUN</button>
   <button class="btn red" id="btnRush">☠ &nbsp;BOSS RUSH</button>
-  <button class="btn gold" id="btnParty">✚ &nbsp;PARTY · 2P CO-OP</button>
+  <button class="btn gold" id="btnParty">✚ &nbsp;PARTY · FUN / ONLINE 2P</button>
   <button class="btn gold" id="btnShop">◈ DATA SHOP (<span id="coreCount">0</span>)</button>
   <div class="row">
     <button class="btn small" id="btnOptions" style="width:150px">OPTIONS</button>
@@ -193,7 +198,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
     <b style="color:#ff8c1a">◉ ORANGE MORTARS</b> land and explode — dodge the ring or shoot them down.
     <b style="color:#ffd23f">GOLD-RINGED</b> elites hit harder and always show health.<br>
     <b>BOSS RUSH</b> — all five bosses back-to-back, no mercy, patch-up between kills.<br>
-    <b>PARTY MODE</b> — P1: WASD + mouse · P2: arrows + auto-fire, SHIFT-RIGHT dash.<br>
+    <b>PARTY MODE</b> — fun mode: everything unlocked, more drops, one free revive solo.<br>
+    <b>ONLINE 2P</b> — PARTY → loadout → LAUNCH → HOST makes a code, GUEST pastes it,<br>
+    guest sends the answer code back, host connects, host presses START. P1 WASD+mouse,<br>
+    P2 WASD+mouse on their own screen. Drafts are picked by the host for both.<br>
     <b style="color:#4fe08a">● GREEN GOO</b> slows you. <b>Green fields</b> slow + weaken. Elites always show HP.</div>
   <button class="btn" id="btnHelpBack">← BACK</button>
 </div></div>
@@ -205,6 +213,26 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
   <button class="btn" id="btnShopBack">← BACK</button>
 </div></div>
 
+<div class="screen hidden" id="scrNet"><div class="card">
+  <div class="title" style="font-size:30px;letter-spacing:4px">PARTY LINK</div>
+  <div class="subtitle">HOST MAKES A CODE · GUEST PASTES IT · GUEST SENDS AN ANSWER BACK</div>
+  <div class="dim" id="netStatus">not connected</div>
+  <button class="btn gold" id="btnSolo">PLAY SOLO (FUN MODE)</button>
+  <div class="row"><button class="btn small" id="btnHost">1 · HOST: MAKE CODE</button></div>
+  <textarea id="hostCode" readonly placeholder="host code appears here — send it to your friend"></textarea>
+  <div class="subtitle">GUEST: paste the host code, then JOIN:</div>
+  <textarea id="joinCode" placeholder="paste host code here"></textarea>
+  <div class="row"><button class="btn small" id="btnJoin">2 · JOIN WITH CODE</button></div>
+  <textarea id="answerCode" readonly placeholder="your answer code — send it back to the host"></textarea>
+  <div class="subtitle">HOST: paste the guest answer, then CONNECT:</div>
+  <textarea id="answerIn" placeholder="paste answer code here"></textarea>
+  <div class="row">
+    <button class="btn small" id="btnAnswer">3 · CONNECT</button>
+    <button class="btn small gold" id="btnNetStart" disabled>START DUO ▶</button>
+  </div>
+  <button class="btn small" id="btnNetBack">← BACK</button>
+</div></div>
+
 <div class="screen hidden" id="scrLoad"><div class="card">
   <div class="title" id="loadTitle" style="font-size:30px;letter-spacing:4px">LOADOUT</div>
   <div class="subtitle" id="loadSub">STANDARD RUN</div>
@@ -212,19 +240,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
   <div id="shipGrid" class="grid2"></div>
   <div class="subtitle" style="margin:4px 0">— WEAPON —</div>
   <div id="weapGrid" class="grid2"></div>
-  <div id="p2box" style="display:none">
-    <div class="subtitle" style="margin:4px 0">— P2 (ARROWS + AUTO-FIRE) —</div>
-    <div class="row">
-      <button class="btn small" id="p2ShipL" style="width:44px">◀</button>
-      <div id="p2ShipN" style="min-width:170px;font-size:13px"></div>
-      <button class="btn small" id="p2ShipR" style="width:44px">▶</button>
-    </div>
-    <div class="row">
-      <button class="btn small" id="p2WeapL" style="width:44px">◀</button>
-      <div id="p2WeapN" style="min-width:170px;font-size:13px"></div>
-      <button class="btn small" id="p2WeapR" style="width:44px">▶</button>
-    </div>
-  </div>
   <button class="btn" id="btnLaunch">LAUNCH ▶</button>
   <button class="btn small" id="btnLoadBack">← BACK</button>
 </div></div>
@@ -420,9 +435,8 @@ const Input={
         p.fire=!!(g.buttons[7]&&g.buttons[7].value>0.25)||!!(g.buttons[0]&&g.buttons[0].pressed);
         p.dash=!!(g.buttons[1]&&g.buttons[1].pressed);break;}}catch(e){}},
   moveVec(){let x=0,y=0;const k=this.keys;
-    const solo=(typeof Q2==='undefined')||!Q2;
-    if(k['KeyW']||(solo&&k['ArrowUp']))y-=1;if(k['KeyS']||(solo&&k['ArrowDown']))y+=1;
-    if(k['KeyA']||(solo&&k['ArrowLeft']))x-=1;if(k['KeyD']||(solo&&k['ArrowRight']))x+=1;
+    if(k['KeyW']||k['ArrowUp'])y-=1;if(k['KeyS']||k['ArrowDown'])y+=1;
+    if(k['KeyA']||k['ArrowLeft'])x-=1;if(k['KeyD']||k['ArrowRight'])x+=1;
     x+=this.pad.mx;y+=this.pad.my;
     if(this.tL.on){const dx=this.tL.x-startTX('stickL'),dy=this.tL.y-startTY('stickL');
       if(Math.hypot(dx,dy)>12){x+=dx/50;y+=dy/50;}}
@@ -445,6 +459,53 @@ function placeStick(id,x,y){const e=$(id);e.style.display='block';
 function moveNub(id,x,y){const e=$(id);const dx=clamp(x-_stickPos[id].x,-40,40),dy=clamp(y-_stickPos[id].y,-40,40);
   e.firstElementChild.style.transform=`translate(${dx}px,${dy}px)`;}
 function startTX(id){return _stickPos[id].x;}function startTY(id){return _stickPos[id].y;}
+
+/* ---------------- NetPlay: 2-player over WebRTC, manual codes, no server ----
+   Static hosting can't matchmake, so signaling is copy-paste:
+   HOST:  CREATE HOST CODE -> send code to friend -> paste friend's answer -> CONNECT
+   GUEST: paste host code -> JOIN -> send your answer code back -> wait for START
+   Host simulates; guest streams inputs and renders snapshots. If the codes
+   don't connect (strict NATs), same-WiFi or a free TURN server usually fixes it. */
+const NP={role:null,pc:null,dc:null,connected:false,loop:null,
+  onOpen:null,onClose:null,onMsg:null,
+  reset(){try{this.dc&&this.dc.close();}catch(e){}try{this.pc&&this.pc.close();}catch(e){}
+    this.role=null;this.pc=null;this.dc=null;this.connected=false;this.loop=null;},
+  hasRTC(){return typeof RTCPeerConnection!=='undefined';},
+  b64e(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');},
+  b64d(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';
+    return decodeURIComponent(escape(atob(s)));},
+  gatherDone(pc){return new Promise(res=>{if(pc.iceGatheringState==='complete')return res();
+    const f=()=>{if(pc.iceGatheringState==='complete'){try{pc.removeEventListener('icegatheringstatechange',f);}catch(e){}res();}};
+    try{pc.addEventListener('icegatheringstatechange',f);}catch(e){}
+    setTimeout(res,9000);});},
+  wirePC(pc,isHost){pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'&&this.onClose)this.onClose('link failed');};},
+  wireDC(){const dc=this.dc;if(!dc)return;const self=this;
+    dc.onopen=()=>{self.connected=true;if(self.onOpen)self.onOpen();};
+    dc.onclose=()=>{self.connected=false;if(self.onClose)self.onClose();};
+    dc.onmessage=(ev)=>{let o=null;try{o=JSON.parse(ev.data);}catch(e){return;}
+      if(self.onMsg)self.onMsg(o);};},
+  send(o){if(this.dc&&this.dc.readyState==='open'){try{this.dc.send(JSON.stringify(o));}catch(e){}}
+    else if(this.loop){try{this.loop(o);}catch(e){}}},
+  async hostCode(){if(!this.hasRTC())return null;this.reset();
+    const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+    this.pc=pc;this.role='host';this.wirePC(pc,true);
+    this.dc=pc.createDataChannel('vb');this.wireDC();
+    const off=await pc.createOffer();await pc.setLocalDescription(off);
+    await this.gatherDone(pc);
+    return this.b64e(JSON.stringify(pc.localDescription));},
+  async applyAnswer(code){const o=JSON.parse(this.b64d(code.trim()));
+    await this.pc.setRemoteDescription(o);},
+  async joinCode(code){if(!this.hasRTC())return null;this.reset();
+    const off=JSON.parse(this.b64d(code.trim()));
+    const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+    this.pc=pc;this.role='guest';this.wirePC(pc,false);
+    const self=this;
+    pc.ondatachannel=(ev)=>{self.dc=ev.channel;self.wireDC();};
+    await pc.setRemoteDescription(off);
+    const ans=await pc.createAnswer();await pc.setLocalDescription(ans);
+    await this.gatherDone(pc);
+    return this.b64e(JSON.stringify(pc.localDescription));},
+};
 
 /* ---------------- online leaderboard (optional) ----------------
    GitHub Pages can only serve static files, so a SHARED global board needs
@@ -586,7 +647,9 @@ const UPS=[
 ];
 function offerUpgrades(title){G.state='upgrade';
   const pool=[...UPS].sort(()=>Math.random()-0.5).slice(0,3);
-  G.upChoices=pool;G.upTimer=8;UI.showUpgrades(pool,title);}
+  G.upChoices=pool;G.upTimer=8;UI.showUpgrades(pool,title);
+  if(G.netRole==='host'&&NP.connected)NP.send({t:'draft',
+    choices:pool.map(u=>({ic:u.ic,n:u.n,d:u.d})),title:title||'WAVE CLEAR'});}
 
 /* ---------------- waves ---------------- */
 function waveSize(w){return Math.min(12+w*3,48);}
@@ -598,7 +661,7 @@ function startWave(w){G.wave=w;G.waveQ.length=0;
     else{tier=[0,1,2,4][G.soloBossIdx%4];G.soloBossIdx++;}
     spawnBoss(w,tier,1);
     UI.banner('⚠ WARNING ⚠',bossName(tier)+' APPROACHES');AudioSys.warn();}
-  else{let n=waveSize(w);if(G.mode==='party')n=Math.floor(n*1.4);
+  else{let n=waveSize(w);if(Q2)n=Math.floor(n*1.4);
     const hp=hpMult(w);
     const squad=4+Math.min(4,(w/2|0));
     let d=0.4;const bulk=Math.ceil(n*0.8);
@@ -630,7 +693,7 @@ function spawnPos(m){const side=rndi(0,3);
   if(side===0)return{x:rnd(0,W),y:-m};if(side===1)return{x:W+m,y:rnd(0,H)};
   if(side===2)return{x:rnd(0,W),y:H+m};return{x:-m,y:rnd(0,H)};}
 function mkEnemy(t,hpm,forceElite){const p=spawnPos(40);const w=G.wave;
-  if(G.mode==='party'&&t!=='boss')hpm*=1.5;
+  if(Q2&&t!=='boss')hpm*=1.5;
   const E={t,x:p.x,y:p.y,vx:0,vy:0,flash:0,slowT:0,elite:false,fireT:rnd(0.5,2),ph:rnd(0,TAU)};
   if(t==='drone'){E.hp=22*hpm;E.r=13;E.spd=130+w*4;E.c='#ff2fb3';E.score=50;}
   else if(t==='swarmer'){E.hp=14*hpm;E.r=9;E.spd=200+w*5;E.c='#aaff00';E.score=30;}
@@ -729,7 +792,10 @@ function hurtPlayer(pl,dmg){if(!pl||!pl.alive||pl.ifr>0||pl.dashT>0)return;
   burst(pl.x,pl.y,'#ff3b5c',10,260,0.5,3);
   if(pl.hp<=0){pl.hp=0;pl.alive=false;
     burst(pl.x,pl.y,shipDef(pl.ship).c,30,320,0.8,4);
-    if(G.mode==='party'&&pilots().some(q=>q.alive)){pl.reviveT=8;
+    if(G.mode==='party'&&!Q2&&G.secondWind){G.secondWind=false;pl.alive=true;
+      pl.hp=pl.maxhp*0.5;pl.sh=pl.maxsh;pl.ifr=2;
+      ring(pl.x,pl.y,'#2bff88',10,150,0.7);UI.banner('SECOND WIND','BACK IN THE FIGHT');return;}
+    if(Q2&&pilots().some(q=>q.alive)){pl.reviveT=8;
       UI.banner(pl.isP2?'P2 DOWN':'P1 DOWN','SURVIVE FOR THE REVIVE');}
     else gameOver();}}
 
@@ -740,9 +806,10 @@ const PICKS={rapid:{c:'#ffd23f',s:'⚡'},spread:{c:'#ff2fb3',s:'✦'},shield:{c:
 function dropPick(x,y,k){G.pickups.push({x:clamp(x,20,W-20),y:clamp(y,20,H-20),
   vx:rnd(-40,40),vy:rnd(-40,40),k,t:0,life:11});}
 function dropRoll(e){const r=Math.random();
+  const pb=G.mode==='party'?0.37:0.32; // party = fun mode: more toys
   if(r<0.16)dropPick(e.x,e.y,'xp');
   else if(r<0.26){G.gold+=rndi(4,10+e.maxhp/40|0);G.score+=15;}
-  else if(r<0.32)dropPick(e.x,e.y,pick(['rapid','spread','shield','mag','nova','cloak','overdrive']));
+  else if(r<pb)dropPick(e.x,e.y,pick(['rapid','spread','shield','mag','nova','cloak','overdrive']));
   else if(r<0.335)dropPick(e.x,e.y,'life');}
 function takePick(k,pl){pl=pl||P;AudioSys.pickup();
   if(k==='rapid'){pl.pow.rapid=G.time+10;addText(pl.x,pl.y-26,'RAPID!','#ffd23f',true);AudioSys.power();}
@@ -890,6 +957,7 @@ function update(dt){
     $('bossFill').style.width=(r*100)+'%';
     $('bossSub').textContent=G.boss.phaseshield>0?'⛨ DESTROY THE SHIELD NODES!':phaseLbl();}
   UI.hud();
+  if(G.netRole==='host'&&NP.connected&&((G.frame=(G.frame||0)+1)%3===0))NP.send(buildSnap());
 }
 function phaseLbl(){if(!G.boss)return'';
   return G.boss.phase>=3?'— FINAL PHASE —':G.boss.phase===2?'— PHASE 2 —':'';}
@@ -903,21 +971,24 @@ function stepTexts(dt){for(let i=G.texts.length-1;i>=0;i--){const t=G.texts[i];t
 function updatePilot(dt,pl,isP2){
   if(!pl.alive)return;
   let mv;
-  if(isP2){mv={x:0,y:0};const k=Input.keys;
-    if(k['ArrowUp'])mv.y-=1;if(k['ArrowDown'])mv.y+=1;
-    if(k['ArrowLeft'])mv.x-=1;if(k['ArrowRight'])mv.x+=1;
-    const l=Math.hypot(mv.x,mv.y);if(l>1){mv.x/=l;mv.y/=l;}}
+  if(isP2){const gi=(G.netRole==='host')?G.guestIn:null; // remote partner drives P2
+    if(gi){mv={x:gi.mx,y:gi.my};
+      if(gi.ax!==undefined)pl.ang=Math.atan2(gi.ay-pl.y,gi.ax-pl.x);
+      pl._fire=gi.fire;pl._dash=gi.dash;}
+    else{mv={x:0,y:0};pl._fire=false;pl._dash=false;}}
   else mv=Input.moveVec();
   const slowed=pl.slowT>G.time?0.65:1;
   const sp=pl.speed*(pl.dashT>0?2.4:1)*slowed;
   pl.vx=lerp(pl.vx,mv.x*sp,1-Math.pow(0.0001,dt));
   pl.vy=lerp(pl.vy,mv.y*sp,1-Math.pow(0.0001,dt));
   pl.x=clamp(pl.x+pl.vx*dt,16,W-16);pl.y=clamp(pl.y+pl.vy*dt,16,H-16);
-  if(isP2){const o=nearestEnemy(pl.x,pl.y,900);
-    if(o)pl.ang=Math.atan2(o.y-pl.y,o.x-pl.x);}
+  if(isP2){if(!((G.netRole==='host')&&G.guestIn)){const o=nearestEnemy(pl.x,pl.y,900);
+    if(o)pl.ang=Math.atan2(o.y-pl.y,o.x-pl.x);}}
   else pl.ang=Input.aimAngle(pl.x+pl.vx*0.03,pl.y);
   if(pl.dashT>0){pl.dashT-=dt;}
-  else{const want=isP2?dashHit2():Input.dashHit();
+  else{let want;
+    if(isP2){want=pl._dash&&!pl._dLatch;pl._dLatch=!!pl._dash;}
+    else want=Input.dashHit();
     if(want&&pl.dashCD<=0&&pl.stam>=28){
       pl.stam-=28;pl.stamT=0;pl.dashT=0.16;pl.dashCD=0.55;pl.dashAng=Math.atan2(mv.y,mv.x);
       if(!mv.x&&!mv.y)pl.dashAng=pl.ang;
@@ -925,15 +996,12 @@ function updatePilot(dt,pl,isP2){
   if(pl.dashT>0){pl.x=clamp(pl.x+Math.cos(pl.dashAng)*760*dt,16,W-16);
     pl.y=clamp(pl.y+Math.sin(pl.dashAng)*760*dt,16,H-16);}
   pl.fireT-=dt;
-  const wantFire=isP2?!!nearestEnemy(pl.x,pl.y,800):(S.set.auto?true:Input.fireHeld());
+  const wantFire=isP2?!!pl._fire:(S.set.auto?true:Input.fireHeld());
   if(wantFire&&pl.fireT<=0){fireShot(pl);pl.fireT=1/effRate(pl);}
   if(pl.cloakT&&pl.cloakT>G.time&&Math.random()<0.3)
     G.parts.push({x:pl.x+rnd(-10,10),y:pl.y+rnd(-10,10),vx:0,vy:0,t:0,dur:0.3,c:'#c07bff',sz:2});
   pl.trail.push({x:pl.x,y:pl.y});if(pl.trail.length>8)pl.trail.shift();
 }
-function dashHit2(){const k=Input.keys,h=k['ShiftRight']||k['Slash']||k['Period'];
-  if(h&&!Input._d2){Input._d2=true;return true;}if(!h)Input._d2=false;return false;}
-
 function updateEnemy(e,dt){
   if(e.flash>0)e.flash-=dt;
   if(e.slowT>0)e.slowT-=dt;
@@ -1064,12 +1132,13 @@ function bossSpecial(b,dx,dy,d,T){const a=Math.atan2(dy,dx);AudioSys.warn();T=T|
 /* ---------------- render ---------------- */
 function render(){
   ctx.save();ctx.clearRect(0,0,W,H);
-  // bg
+  const guest=G.netRole==='guest';
   const g=ctx.createRadialGradient(W/2,H*0.4,50,W/2,H/2,Math.max(W,H)*0.75);
   g.addColorStop(0,'#0c0a20');g.addColorStop(1,'#07070e');
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  grid();stars();
-  ctx.translate(G.shakeX,G.shakeY);
+  if(!guest){grid();stars();}
+  if(guest&&G.netView){ctx.translate(G.netView.ox,G.netView.oy);ctx.scale(G.netView.s,G.netView.s);}
+  else ctx.translate(G.shakeX,G.shakeY);
   pickups();trails();enemies();bullets();parts();texts();player();
   ctx.restore();
   lowHpFx();
@@ -1189,8 +1258,8 @@ function texts(){ctx.textAlign='center';ctx.textBaseline='middle';
   for(const t of G.texts){const k=1-t.t/t.dur;ctx.globalAlpha=Math.min(1,k*2);
     ctx.font=(t.big?'bold 20px':'bold 13px')+' monospace';
     ctx.fillStyle=t.c;ctx.fillText(t.s,t.x,t.y);}ctx.globalAlpha=1;}
-function lowHpFx(){const r=P.hp/P.maxhp;
-  $('lowHp').style.opacity=(!P.alive||r>0.3)?0:0.4+0.4*Math.sin(G.time*6)*(1-r/0.3+0.4);}
+function lowHpFx(){const pl=(G.netRole==='guest'&&Q2)?Q2:P;const r=pl.hp/pl.maxhp;
+  $('lowHp').style.opacity=(!pl.alive||r>0.3)?0:0.4+0.4*Math.sin(G.time*6)*(1-r/0.3+0.4);}
 
 
 /* ---------------- DOM UI ---------------- */
@@ -1202,26 +1271,35 @@ const UI={
     const b=$('banner');b.classList.remove('show');void b.offsetWidth;b.classList.add('show');},
   flashHint(s){addText(P.x,P.y-30,s,'#8a8fb0');},
   setWaveTxt(s){$('waveLbl').textContent=s;},
-  hud(){$('scoreLbl').textContent=G.score.toLocaleString();
+  hud(){const me=(G.netRole==='guest'&&Q2)?Q2:P;
+    $('scoreLbl').textContent=G.score.toLocaleString();
     $('hiLbl').textContent='BEST '+S.high.toLocaleString();
     $('goldLbl').textContent='◈ '+G.gold;
     $('lvlLbl').textContent='LV '+G.level+' · ✦'+G.xp+'/'+(G.level*90);
     $('comboLbl').textContent=G.combo>=5?('COMBO ×'+(1+Math.min(G.combo,30)*0.1).toFixed(1)+' · '+G.combo+' KILLS'):'';
-    $('hpFill').style.width=clamp(P.hp/P.maxhp*100,0,100)+'%';
-    $('shFill').style.width=clamp(P.sh/P.maxsh*100,0,100)+'%';
-    $('stFill').style.width=clamp(P.stam/P.maxstam*100,0,100)+'%';
+    $('hpFill').style.width=clamp(me.hp/me.maxhp*100,0,100)+'%';
+    $('shFill').style.width=clamp(me.sh/me.maxsh*100,0,100)+'%';
+    $('stFill').style.width=clamp(me.stam/me.maxstam*100,0,100)+'%';
     $('xpFill').style.width=clamp(G.xp/(G.level*90)*100,0,100)+'%';
     let pw='';
-    if(P.pow.rapid>G.time)pw+=`<span class="pw">⚡ ${Math.ceil(P.pow.rapid-G.time)}s</span>`;
-    if(P.pow.spread>G.time)pw+=`<span class="pw">✦ ${Math.ceil(P.pow.spread-G.time)}s</span>`;
-    if(P.pow.shield>G.time)pw+=`<span class="pw">◈ ${Math.ceil(P.pow.shield-G.time)}s</span>`;
-    if(P.cloakT&&P.cloakT>G.time)pw+=`<span class="pw">◍ ${Math.ceil(P.cloakT-G.time)}s</span>`;
+    if(me.pow.rapid>G.time)pw+=`<span class="pw">⚡ ${Math.ceil(me.pow.rapid-G.time)}s</span>`;
+    if(me.pow.spread>G.time)pw+=`<span class="pw">✦ ${Math.ceil(me.pow.spread-G.time)}s</span>`;
+    if(me.pow.shield>G.time)pw+=`<span class="pw">◈ ${Math.ceil(me.pow.shield-G.time)}s</span>`;
+    if(me.cloakT&&me.cloakT>G.time)pw+=`<span class="pw">◍ ${Math.ceil(me.cloakT-G.time)}s</span>`;
     for(const pl of pilots()){if(!pl.alive)continue;
       if(pl.slowT>G.time)pw+=`<span class="pw bad">🐌 ${pl.isP2?'P2 ':''}${Math.ceil(pl.slowT-G.time)}s</span>`;
       if(pl.corrT>G.time)pw+=`<span class="pw bad">☠ ${pl.isP2?'P2 ':''}${Math.ceil(pl.corrT-G.time)}s</span>`;}
     $('powers').innerHTML=pw;
-    if(Q2){$('p2hpFill').style.width=clamp(Q2.hp/Q2.maxhp*100,0,100)+'%';
-      $('p2shFill').style.width=clamp(Q2.sh/Q2.maxsh*100,0,100)+'%';}},
+    const mate=G.netRole==='guest'?P:Q2;
+    if(mate){$('p2hpFill').style.width=clamp(mate.hp/mate.maxhp*100,0,100)+'%';
+      $('p2shFill').style.width=clamp(mate.sh/mate.maxsh*100,0,100)+'%';}},
+  showUpgradesDisabled(list,title){this.show('scrUpgrade');
+    try{const t=$('scrUpgrade').querySelector('.title');if(t)t.textContent=title||'WAVE CLEAR';}catch(e){}
+    const c=$('upCards');c.innerHTML='';
+    list.forEach((u)=>{const d=document.createElement('div');d.className='upcard';
+      d.innerHTML=`<div class="ic">${u.ic}</div><h3>${u.n}</h3><p>${u.d}</p>`;c.appendChild(d);});
+    const n=document.createElement('div');n.className='subtitle';n.textContent='HOST IS CHOOSING…';
+    c.appendChild(n);},
   showUpgrades(list,title){this.show('scrUpgrade');
     try{const t=$('scrUpgrade').querySelector('.title');if(t)t.textContent=title||'WAVE CLEAR';}catch(e){}
     const c=$('upCards');c.innerHTML='';
@@ -1255,10 +1333,12 @@ const STORE=[['REPAIR +50','hp',50],['FULL SHIELD','sh',40],['+1 SHOT/SEC','rate
 
 /* ---------------- game flow ---------------- */
 const Game={
-  esc(){if(G.state==='play')this.pause();
+  esc(){if(G.netRole==='guest')return;
+    if(G.state==='play')this.pause();
     else if(G.state==='pause')this.resume();
     else if(G.state==='store')this.toggleStore();},
-  storeKey(){if(G.state==='play'||G.state==='store')this.toggleStore();},
+  storeKey(){if(G.netRole==='guest')return;
+    if(G.state==='play'||G.state==='store')this.toggleStore();},
   start(){Q2=null;$('bars2').style.display='none';
     AudioSys.ensure();AudioSys.startMusic();resetRun();G.mode='run';G.state='play';G.interT=0.6;
     $('bossBar').style.display='none';UI.show(null);UI.setWaveTxt('WAVE 1');},
@@ -1266,13 +1346,24 @@ const Game={
     AudioSys.ensure();AudioSys.startMusic();resetRun();G.mode='rush';G.rush=0;G.rushDrafts=2;
     $('bossBar').style.display='none';UI.setWaveTxt('☠ RUSH');
     offerUpgrades('GEAR UP — DRAFT 1 OF 2');},
-  startParty(){Q2={isP2:true,trail:[],pow:{rapid:0,spread:0,shield:0}};$('bars2').style.display='block';
-    AudioSys.ensure();AudioSys.startMusic();resetRun();G.mode='party';G.state='play';G.interT=0.6;
+  startPartySolo(){Q2=null;$('bars2').style.display='none';
+    AudioSys.ensure();AudioSys.startMusic();resetRun();G.mode='party';G.secondWind=true;
+    G.netRole=null;G.state='play';G.interT=0.6;
     $('bossBar').style.display='none';UI.show(null);UI.setWaveTxt('PARTY');
-    UI.banner('PARTY UP','P1 WASD+MOUSE · P2 ARROWS+AUTOFIRE');},
+    UI.banner('FUN MODE','EVERYTHING UNLOCKED · ONE FREE REVIVE');},
+  startNetDuo(){Q2=null;resetRun();G.mode='party';G.secondWind=false;
+    Q2={isP2:true,trail:[],pow:{rapid:0,spread:0,shield:0}};
+    resetPilot(Q2);const L=G.guestLoad||{ship:'interceptor',weapon:'scatter'};
+    applyShip(Q2,L.ship);Q2.weapon=L.weapon;
+    const m=S.meta;Q2.maxhp+=m.hull*12;Q2.hp=Q2.maxhp;Q2.maxsh+=m.shield*6;Q2.sh=Q2.maxsh;Q2.dmg+=m.dmg*0.12;
+    G.netRole='host';G.state='play';G.interT=1.5;
+    $('bossBar').style.display='none';$('bars2').style.display='block';
+    UI.show(null);UI.setWaveTxt('PARTY DUO');
+    NP.send({t:'start'});UI.banner('DUO UP','REVIVE EACH OTHER');},
   pause(){if(G.state!=='play')return;G.state='pause';UI.show('scrPause');AudioSys.ui();},
   resume(){if(G.state!=='pause')return;G.state='play';UI.show(null);AudioSys.ui();},
-  quit(){G.state='menu';Q2=null;$('bars2').style.display='none';
+  quit(){G.state='menu';Q2=null;G.netRole=null;G.guestIn=null;NP.reset();
+    $('bars2').style.display='none';waitOv(false);
     AudioSys.stopMusic();UI.refreshMenu();UI.show('scrMenu');},
   toggleStore(){if(G.state==='play'){G.state='store';this.drawStore();UI.show('scrStore');AudioSys.ui();}
     else if(G.state==='store'){G.state='play';UI.show(null);AudioSys.ui();}},
@@ -1298,7 +1389,8 @@ const Game={
         pl.hp=Math.min(pl.maxhp,pl.hp+pl.maxhp*0.5);pl.sh=pl.maxsh;
         addText(pl.x,pl.y-30,'PATCHED +50%','#2bff88',true);}
       G.ebullets.length=0;}
-    G.interT=1.2;nextStage();},
+    G.interT=1.2;nextStage();
+    if(G.netRole==='host'&&NP.connected)NP.send({t:'nodraft'});},
 };
 function gameOver(){G.state='dying';G.slowMo=0.25;AudioSys.boom(true);AudioSys.stopMusic();
   const dp=pilots().find(q=>!q.alive)||P;
@@ -1328,6 +1420,8 @@ function finishRun(){G.state='over';
   $('saveRow').style.display='flex';$('btnSaveScore').disabled=false;
   $('postState').textContent='';
   G.boardMode=mode;G.boardDepth=depth;
+  if(G.netRole==='host'&&NP.connected)NP.send({t:'over',
+    stats:{score:G.score,wave:G.wave,kills:G.kills,level:G.level,gold:G.gold}});
   const tag=mode==='rush'?'R':mode==='party'?'W':'W';
   $('lbTable').innerHTML=`<b style="color:#ffd23f">LOCAL ${mode.toUpperCase()}</b><br>`+lbHTML(mode,tag);
   UI.show('scrOver');}
@@ -1349,9 +1443,8 @@ let loadMode='run';
 function shipUnlocked(id){return loadMode==='party'||!!S.ships.owned[id];}
 function openLoad(mode){loadMode=mode;
   $('loadSub').textContent=mode==='rush'?'BOSS RUSH — 2 OPENING DRAFTS, THEN BOSS 1'
-    :mode==='party'?'PARTY CO-OP — EVERYTHING UNLOCKED · P1: WASD+MOUSE · P2: ARROWS+AUTOFIRE'
+    :mode==='party'?'PARTY FUN MODE — EVERYTHING UNLOCKED · +DROPS · SECOND WIND'
     :'STANDARD RUN — SHIPS UNLOCK WITH ◈ CORES';
-  $('p2box').style.display=mode==='party'?'block':'none';
   drawLoad();UI.show('scrLoad');}
 function buyShip(id){const s=shipDef(id);if(S.ships.owned[id])return true;
   if(S.cores<s.cost)return false;S.cores-=s.cost;S.ships.owned[id]=true;S.ships.sel=id;S.save();return true;}
@@ -1367,15 +1460,7 @@ function drawLoad(){const sg=$('shipGrid');sg.innerHTML='';
   WEAPONS.forEach(w=>{const sel=S.weapons.sel===w.id;
     const d=document.createElement('div');d.className='pick'+(sel?' sel':'');
     d.innerHTML=`<b style="color:#00f0ff">${w.name}</b><br><small>${w.desc}</small>`;
-    d.onclick=()=>{S.weapons.sel=w.id;S.save();AudioSys.ui();drawLoad();};wg.appendChild(d);});
-  if(loadMode==='party')drawP2();}
-function drawP2(){const s=shipDef(S.p2.ship);
-  $('p2ShipN').innerHTML=`<b style="color:${s.c}">${s.name}</b><br><small style="color:#8a8fb0">${s.desc}</small>`;
-  const w=WEAPONS.find(a=>a.id===S.p2.weapon)||WEAPONS[0];
-  $('p2WeapN').innerHTML=`<b style="color:#00f0ff">${w.name}</b><br><small style="color:#8a8fb0">${w.desc}</small>`;}
-function cycleP2(kind,dir){const arr=kind==='ship'?SHIPS:WEAPONS,key=kind==='ship'?'ship':'weapon';
-  let i=arr.findIndex(a=>a.id===S.p2[key]);i=(i+dir+arr.length)%arr.length;
-  S.p2[key]=arr[i].id;S.save();AudioSys.ui();drawP2();}
+    d.onclick=()=>{S.weapons.sel=w.id;S.save();AudioSys.ui();drawLoad();};wg.appendChild(d);});}
 
 /* ---------------- leaderboards (local + optional global) ---------------- */
 function lbAdd(mode,name,score,depth){const b=S.lb[mode]||[];
@@ -1384,6 +1469,109 @@ function lbAdd(mode,name,score,depth){const b=S.lb[mode]||[];
 function lbHTML(mode,tag){const b=S.lb[mode]||[];
   if(!b.length)return '<span style="color:#555">no scores yet — be the first</span>';
   return b.map((e,i)=>`${i+1}. ${e.n} — ${e.s.toLocaleString()} <small style="color:#8a8fb0">${tag} ${e.d}</small>`).join('<br>');}
+
+/* ---------------- netplay sync (host authoritative) ---------------- */
+const R1=v=>Math.round(v*10)/10;
+function pilotSnap(pl){return{x:R1(pl.x),y:R1(pl.y),ang:+pl.ang.toFixed(2),
+  hp:Math.ceil(pl.hp),maxhp:pl.maxhp,sh:Math.ceil(pl.sh),maxsh:pl.maxsh,
+  stam:Math.round(pl.stam),maxstam:pl.maxstam,alive:pl.alive,ship:pl.ship,r:pl.r,
+  rapid:pl.pow.rapid>G.time?+((pl.pow.rapid-G.time).toFixed(1)):0,
+  spread:pl.pow.spread>G.time?+((pl.pow.spread-G.time).toFixed(1)):0,
+  shield:pl.pow.shield>G.time?+((pl.pow.shield-G.time).toFixed(1)):0,
+  cloak:pl.cloakT&&pl.cloakT>G.time?+((pl.cloakT-G.time).toFixed(1)):0,
+  slow:pl.slowT>G.time?1:0,corr:pl.corrT>G.time?1:0};}
+function eSnap(e){const o={x:R1(e.x),y:R1(e.y),vx:R1(e.vx),vy:R1(e.vy),r:e.r,c:e.c,t:e.t,
+  elite:!!e.elite,hp:Math.ceil(e.hp),maxhp:e.maxhp,flash:e.flash>0?1:0,ph:+e.ph.toFixed(2)};
+  if(e.boss){o.boss=1;o.tier=e.tier;o.name=e.name;
+    if(e.nodes)o.nodes=e.nodes.filter(n=>!n.dead).map(n=>({x:R1(n.x),y:R1(n.y),r:n.r}));}
+  return o;}
+function buildSnap(){return{t:'snap',w:W,h:H,time:+G.time.toFixed(2),wave:G.wave,
+  score:G.score,combo:G.combo,gold:G.gold,xp:G.xp,level:G.level,state:G.state,
+  me:pilotSnap(P),you:Q2?pilotSnap(Q2):null,
+  en:G.enemies.filter(e=>!e.dead).slice(0,70).map(eSnap),
+  pb:G.bullets.slice(-140).map(b=>({x:R1(b.x),y:R1(b.y),vx:R1(b.vx),vy:R1(b.vy),
+    over:b.over?1:0,rail:b.rail?1:0,hom:b.hom?1:0,arc:b.arc?1:0})),
+  eb:G.ebullets.slice(-160).map(b=>(b.mortar||b.blast)?
+    {x:R1(b.x),y:R1(b.y),mortar:1,goo:b.goo?1:0,blast:b.blast?1:0,landed:b.landed?1:0,br:b.br}:
+    {x:R1(b.x),y:R1(b.y),vx:R1(b.vx),vy:R1(b.vy),r:b.r}),
+  pk:G.pickups.slice(-40).map(k=>({x:R1(k.x),y:R1(k.y),k:k.k})),
+  zn:G.zones.map(z=>({x:R1(z.x),y:R1(z.y),r:z.r,t:+z.t.toFixed(2),dur:z.dur})),
+  boss:G.boss&&!G.boss.dead?{hp:Math.ceil(G.boss.hp),maxhp:G.boss.maxhp,name:G.boss.name,
+    sub:G.boss.phaseshield>0?('⛨ SHIELD NODES: '+G.boss.phaseshield):phaseLbl()}:null};}
+function applyPilot(pl,sn){if(!sn)return;
+  Object.assign(pl,{x:sn.x,y:sn.y,ang:sn.ang,hp:sn.hp,maxhp:sn.maxhp,sh:sn.sh,maxsh:sn.maxsh,
+    stam:sn.stam,maxstam:sn.maxstam,alive:sn.alive,ship:sn.ship,r:sn.r});
+  pl.trail=[];
+  pl.pow={rapid:sn.rapid?G.time+sn.rapid:0,spread:sn.spread?G.time+sn.spread:0,
+    shield:sn.shield?G.time+sn.shield:0};
+  pl.cloakT=sn.cloak?G.time+sn.cloak:0;pl.slowT=sn.slow?G.time+9:0;pl.corrT=sn.corr?G.time+9:0;}
+function applySnap(s){G.time=s.time;G.wave=s.wave;G.score=s.score;G.combo=s.combo;
+  G.gold=s.gold;G.xp=s.xp;G.level=s.level;G.snapAge=0;
+  applyPilot(P,s.me);if(s.you){if(!Q2)Q2={isP2:true,trail:[],pow:{rapid:0,spread:0,shield:0}};applyPilot(Q2,s.you);}
+  G.enemies=s.en.map(o=>Object.assign({dead:false,vx:o.vx||0,vy:o.vy||0,flash:0,slowT:0,
+    fireT:99,spd:0,orbit:200,shots:0,buffT:0},o));
+  G.boss=G.enemies.find(e=>e.boss&&!e.dead)||null;
+  G.bullets=s.pb.map(o=>Object.assign({t:0,life:99,vx:o.vx||0,vy:o.vy||0,dmg:0,pierce:0},o));
+  G.ebullets=s.eb.map(o=>Object.assign({t:0,life:99,vx:o.vx||0,vy:o.vy||0,fuse:99},o));
+  G.pickups=s.pk.map(o=>({x:o.x,y:o.y,vx:0,vy:0,k:o.k,t:0,life:99}));
+  G.zones=s.zn.map(o=>({x:o.x,y:o.y,r:o.r,t:o.t,dur:o.dur}));
+  G.netView=G.netView||{};G.netView.w=s.w||1280;G.netView.h=s.h||800;
+  if(s.boss){$('bossBar').style.display='block';$('bossName').textContent='☠ '+s.boss.name;
+    $('bossFill').style.width=(clamp(s.boss.hp/s.boss.maxhp,0,1)*100)+'%';
+    $('bossSub').textContent=s.boss.sub||'';}
+  else $('bossBar').style.display='none';
+  if(s.state==='pause')waitOv(true,'HOST PAUSED — WAITING');
+  else if(s.state==='store')waitOv(true,'HOST IS SHOPPING…');
+  else if(s.state==='play'){waitOv(false);if(G.state==='upgrade')UI.show(null);G.state='play';}}
+function waitOv(on,txt){const e=$('waitOv');e.style.display=on?'flex':'none';if(txt)e.textContent=txt;}
+function dashEdge(){const k=Input.keys,h=k['ShiftLeft']||k['ShiftRight']||k['KeyK'];
+  if(h&&!G._de){G._de=true;return 1;}if(!h)G._de=false;return 0;}
+function guestTick(raw){G.inT=(G.inT||0)+raw;
+  const nv=G.netView;
+  if(nv){const s=Math.min(W/nv.w,H/nv.h);nv.s=s;nv.ox=(W-nv.w*s)/2;nv.oy=(H-nv.h*s)/2;}
+  const mv=Input.moveVec();
+  if(G.inT>1/30&&nv){G.inT=0;
+    NP.send({t:'in',mx:+mv.x.toFixed(2),my:+mv.y.toFixed(2),
+      ax:Math.round((Input.mouseX-nv.ox)/nv.s),ay:Math.round((Input.mouseY-nv.oy)/nv.s),
+      fire:Input.fireHeld()?1:0,dash:dashEdge()});}
+  G.snapAge=(G.snapAge||0)+raw;
+  if(G.snapAge<0.12){for(const e of G.enemies){e.x+=(e.vx||0)*raw;e.y+=(e.vy||0)*raw;}
+    for(const b of G.bullets){b.x+=(b.vx||0)*raw;b.y+=(b.vy||0)*raw;}
+    for(const b of G.ebullets){if(!b.landed){b.x+=(b.vx||0)*raw;b.y+=(b.vy||0)*raw;}}}
+  UI.hud();}
+function guestStart(){G.mode='party';G.state='play';G.interT=1;
+  Q2={isP2:true,trail:[],pow:{rapid:0,spread:0,shield:0}};
+  resetPilot(Q2);applyShip(Q2,S.ships.sel);Q2.weapon=S.weapons.sel;
+  $('bars2').style.display='block';UI.show(null);waitOv(false);
+  UI.banner('LINKED UP','HOST IS SIMULATING — YOU FLY');}
+function guestOver(st){G.state='over';waitOv(false);
+  $('overTitle').textContent='PARTY WIPED';
+  $('newBest').classList.add('hidden');
+  $('overStats').innerHTML=`PARTY SCORE <b>${st.score.toLocaleString()}</b> · WAVE <b>${st.wave}</b><br>`+
+    `KILLS <b>${st.kills}</b> · LEVEL <b>${st.level}</b>`;
+  $('saveRow').style.display='none';$('postState').textContent='scores are saved on the host';
+  $('lbTable').innerHTML='';
+  UI.show('scrOver');}
+function routeMsg(o){
+  if(G.netRole==='host'){
+    if(o.t==='in')G.guestIn=o;
+    else if(o.t==='load')G.guestLoad={ship:o.ship,weapon:o.weapon};
+    else if(o.t==='bye'){NP.connected=false;onPartnerLeft();}
+  }else if(G.netRole==='guest'){
+    if(o.t==='snap')applySnap(o);
+    else if(o.t==='draft')UI.showUpgradesDisabled(o.choices,o.title);
+    else if(o.t==='nodraft'){if(G.state==='upgrade')UI.show(null);waitOv(false);G.state='play';}
+    else if(o.t==='start')guestStart();
+    else if(o.t==='over')guestOver(o.stats);
+    else if(o.t==='bye'){NP.connected=false;G.netRole=null;G.state='menu';waitOv(false);UI.show('scrMenu');}
+  }}
+function onPartnerLeft(){Q2=null;G.guestIn=null;$('bars2').style.display='none';
+  UI.banner('PARTNER LEFT','SOLO FROM HERE');}
+function netStatus(t){$('netStatus').textContent=t;}
+function openNetLobby(){waitOv(false);$('btnNetStart').disabled=true;
+  netStatus(NP.hasRTC()?'pick a side — host or join':'WebRTC unavailable in this browser (try Chrome/Edge/Firefox)');
+  $('hostCode').value='';$('answerIn').value='';$('joinCode').value='';$('answerCode').value='';
+  UI.show('scrNet');}
 
 /* ---------------- wiring ---------------- */
 function bindOptions(){
@@ -1404,16 +1592,29 @@ function wire(){
   click('btnStart',()=>openLoad('run'));
   click('btnRush',()=>openLoad('rush'));
   click('btnParty',()=>openLoad('party'));
-  click('btnLaunch',()=>{if(loadMode==='party')Game.startParty();
+  click('btnLaunch',()=>{if(loadMode==='party')openNetLobby();
     else if(loadMode==='rush')Game.startRush();else Game.start();});
   click('btnLoadBack',()=>{UI.refreshMenu();UI.show('scrMenu');});
-  click('p2ShipL',()=>cycleP2('ship',-1));
-  click('p2ShipR',()=>cycleP2('ship',1));
-  click('p2WeapL',()=>cycleP2('weapon',-1));
-  click('p2WeapR',()=>cycleP2('weapon',1));
+  click('btnNetBack',()=>{NP.reset();G.netRole=null;UI.refreshMenu();UI.show('scrMenu');});
+  click('btnSolo',()=>Game.startPartySolo());
+  click('btnHost',async()=>{netStatus('building host code… (allow a few seconds)');
+    try{const c=await NP.hostCode();
+      if(!c){netStatus('WebRTC unavailable here');return;}
+      $('hostCode').value=c;netStatus('code ready — send it to your friend');}
+    catch(e){netStatus('could not build code');}});
+  click('btnJoin',async()=>{const c=$('joinCode').value.trim();if(!c){netStatus('paste a host code first');return;}
+    netStatus('joining…');
+    try{const a=await NP.joinCode(c);
+      if(!a){netStatus('WebRTC unavailable here');return;}
+      $('answerCode').value=a;netStatus('joined — send the answer code back to the host');}
+    catch(e){netStatus('bad host code — check and retry');}});
+  click('btnAnswer',async()=>{const c=$('answerIn').value.trim();if(!c){netStatus('paste the answer code first');return;}
+    try{await NP.applyAnswer(c);netStatus('linking… (START unlocks on connect)');}
+    catch(e){netStatus('bad answer code — check and retry');}});
+  click('btnNetStart',()=>{if(NP.connected&&NP.role==='host')Game.startNetDuo();});
   click('btnSaveScore',()=>saveScore());
   click('btnRetry',()=>{if(G.boardMode==='rush')Game.startRush();
-    else if(G.boardMode==='party')Game.startParty();else Game.start();});
+    else if(G.boardMode==='party')Game.startPartySolo();else Game.start();});
   click('btnMenu',()=>Game.quit());
   click('btnOptions',()=>UI.show('scrOptions'));
   click('btnHelp',()=>UI.show('scrHelp'));
@@ -1426,6 +1627,17 @@ function wire(){
   click('btnQuit',()=>Game.quit());
   click('btnStoreBack',()=>Game.toggleStore());
   bindOptions();
+  NP.onOpen=()=>{if(NP.role==='host'){netStatus('partner linked — press START DUO');
+      $('btnNetStart').disabled=false;}
+    else if(NP.role==='guest'){G.netRole='guest';
+      NP.send({t:'load',ship:S.ships.sel,weapon:S.weapons.sel});
+      netStatus('connected — waiting for host to press START');}};
+  NP.onClose=()=>{if(G.netRole==='host'&&(G.state==='play'||G.state==='upgrade')){
+      Q2=null;G.guestIn=null;$('bars2').style.display='none';
+      UI.banner('PARTNER LEFT','SOLO FROM HERE');}
+    else if(G.netRole==='guest'){G.netRole=null;G.state='menu';waitOv(false);UI.show('scrMenu');}
+    netStatus('disconnected');try{$('btnNetStart').disabled=true;}catch(e){}};
+  NP.onMsg=routeMsg;
 }
 
 /* ---------------- main loop ---------------- */
@@ -1433,6 +1645,7 @@ let lastT=0;
 function frame(t){requestAnimationFrame(frame);
   const raw=Math.min(0.05,(t-lastT)/1000||0.016);lastT=t;
   AudioSys.tickMusic();
+  if(G.netRole==='guest'){guestTick(raw);render();return;}
   if(G.state==='play'){const dt=raw*G.slowMo;update(dt);}
   else if(G.state==='upgrade'){G.upTimer-=raw;
     $('timerFill').style.width=clamp(G.upTimer/8*100,0,100)+'%';
