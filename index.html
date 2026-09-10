@@ -128,6 +128,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
   box-shadow:0 0 40px rgba(0,240,255,.08)}
 .title{font-size:clamp(38px,9vw,76px);letter-spacing:10px;color:var(--cy);font-weight:bold;
   text-shadow:0 0 30px rgba(0,240,255,.7)}
+#logoImg{display:none;max-width:min(440px,80vw);margin:0 auto 4px;mix-blend-mode:screen;}
 .subtitle{color:var(--dim);font-size:clamp(11px,2vw,15px);letter-spacing:4px;margin:6px 0 20px}
 .btn{display:block;width:min(340px,80vw);margin:9px auto;padding:12px 16px;font:inherit;font-size:17px;
   letter-spacing:2px;color:var(--cy);background:#0a1a26;border:2px solid var(--cy);border-radius:8px;cursor:pointer}
@@ -206,7 +207,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
 <div class="stick" id="stickR"><div class="nub"></div></div>
 
 <div class="screen" id="scrMenu"><div class="card">
-  <div class="title">VOID BREACH</div>
+  <img id="logoImg" alt="VOID BREACH" style="display:none">
+  <div class="title" id="logoText">VOID BREACH</div>
   <div class="subtitle">A BULLET-HELL ARCADE RUN</div>
   <button class="btn" id="btnStart">▶ &nbsp;START RUN</button>
   <button class="btn red" id="btnRush">☠ &nbsp;BOSS RUSH</button>
@@ -227,6 +229,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
   <div id="lbSideStd"></div>
   <h3>BOSS RUSH · TOP 10</h3>
   <div id="lbSideRush"></div>
+  <h3>🌐 GLOBAL · TOP 5</h3>
+  <div id="lbSideGlobal"></div>
 </div>
 </div>
 
@@ -587,6 +591,36 @@ function startTX(id){return _stickPos[id].x;}function startTY(id){return _stickP
 /* Leaderboards are local-only (no accounts, no servers): top-10 per mode,
    stored in this browser. Name entry caps at 10 arcade-style characters. */
 function cleanName(n){return (n||'').toUpperCase().replace(/[^A-Z0-9 _-]/g,'').slice(0,10)||'ACE';}
+/* ---- Optional shared board (Upstash Redis REST, free tier) ----
+   Static hosting (itch.io or GitHub Pages) cannot store shared scores, so
+   this needs one tiny free backend. Setup (~5 min, no player accounts):
+     1. Sign up at upstash.com, create a Redis database (free tier is plenty).
+     2. From its dashboard copy the REST URL and REST TOKEN.
+     3. Paste them into ONLINE below and re-upload this file.
+   Then scores post automatically and the menu's GLOBAL section fills in.
+   Leave url:'' and the game runs 100% offline on local boards only.
+   NOTE: the token ships in this public file, so anyone could spam the board.
+   Fine for playing with friends; rotate the token if abused. */
+const ONLINE={url:'',token:''};
+const Net={
+  ok(){return !!(ONLINE.url&&ONLINE.token);},
+  async call(path,opts){let ctl=null;try{ctl=new AbortController();}catch(e){}
+    let to=0;try{to=setTimeout(()=>{try{ctl.abort();}catch(e){}},6000);}catch(e){}
+    try{const r=await fetch(ONLINE.url+path,Object.assign(
+      {headers:{Authorization:'Bearer '+ONLINE.token},signal:ctl?ctl.signal:undefined},opts||{}));
+      if(to)clearTimeout(to);if(!r.ok)return null;return await r.json();}
+    catch(e){if(to)clearTimeout(to);return null;}},
+  async submit(mode,name,score,depth){if(!this.ok())return false;
+    const m=JSON.stringify({n:cleanName(name),d:depth|0,t:Date.now()});
+    const r=await this.call('/zadd/vb_'+mode+'/'+Math.floor(score)+'/'+encodeURIComponent(m),{method:'POST'});
+    return !!(r&&r.result!==undefined);},
+  async top(mode){if(!this.ok())return null;
+    const r=await this.call('/zrevrange/vb_'+mode+'/0/4/WITHSCORES');
+    if(!r||!Array.isArray(r.result))return null;
+    const out=[];for(let i=0;i<r.result.length;i+=2){
+      try{const o=JSON.parse(r.result[i]);out.push({n:o.n,s:+r.result[i+1],d:o.d});}catch(e){}}
+    return out;},
+};
 
 
 /* ---------------- game state ---------------- */
@@ -1513,7 +1547,11 @@ const UI={
     $('menuBest').innerHTML=`BEST ${S.high.toLocaleString()} · WAVE ${S.bestWave} · ⏱ ${fmtClock(S.bestTime||0)} LONGEST`+
       (S.games?` · ${S.games} RUNS`:'');
     $('menuRush').innerHTML=S.bestRush>0?`☠ BEST RUSH DEPTH ${S.bestRush}`:'☠ BOSS RUSH — UNTESTED';
-    drawSideBoards();},
+    drawSideBoards();
+    if(Net.ok()){Net.top('standard').then(t=>{
+      if(t&&t.length)$('lbSideGlobal').innerHTML=t.map((e,i)=>`<div>${i+1}. ${e.n} — ${e.s.toLocaleString()}</div>`).join('');
+      else $('lbSideGlobal').innerHTML='<span style="color:#555">board empty — be first</span>';});}
+    else $('lbSideGlobal').innerHTML='<span style="color:#555">local only</span>';},
   refreshShop(tab){$('shopCores').textContent=S.cores;$('shopScrap').textContent=S.scrap;
     const L=$('shopList');L.innerHTML='';tab=tab||G.shopTab||'up';G.shopTab=tab;
     ['Up','Bp','Foundry'].forEach(k=>{try{
@@ -1705,7 +1743,11 @@ function saveScore(){const btn=$('btnSaveScore');if(btn.disabled)return;btn.disa
     +lbHTML(G.boardMode||'standard',tag);
   $('saveRow').style.display='none';
   $('postState').textContent='saved ✓';
-  UI.refreshMenu();}
+  UI.refreshMenu();
+  if(Net.ok()&&(G.boardMode==='standard'||G.boardMode==='rush')){
+    $('postState').textContent='posting to global board…';
+    Net.submit(G.boardMode,name,G.score,G.boardDepth||0).then(ok=>{
+      $('postState').textContent=ok?'✓ on the global board':'global board unreachable — kept locally';});}}
 function toggleFS(){try{
   if(document.fullscreenElement||document.webkitFullscreenElement){
     if(document.exitFullscreen)document.exitFullscreen();
@@ -1968,7 +2010,12 @@ function menuBg(dt){G.time+=dt;stepParts(dt);
       c:pick(['#00f0ff','#ff2fb3','#2bff88']),sz:rnd(1,2.5)});}
 
 /* ---------------- boot ---------------- */
-Input.init();wire();UI.refreshMenu();resetRun();UI.show('scrMenu');
+function initLogo(){try{
+  const img=$('logoImg'),txt=$('logoText');
+  img.onload=()=>{img.style.display='block';if(txt)txt.style.display='none';};
+  img.onerror=()=>{img.style.display='none';if(txt)txt.style.display='';};
+  img.src='logo.png';}catch(e){}}
+Input.init();wire();initLogo();UI.refreshMenu();resetRun();UI.show('scrMenu');
 requestAnimationFrame(frame);
 </script>
 </body>
