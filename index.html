@@ -333,11 +333,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
 </div>
 <script>
 'use strict';
-/* ============================================================
-   VOID BREACH 2 — zero-dependency arcade rebuild.
-   Sections: utils · store/settings · audio · input · dom/ui
-             entities · waves/bosses · collisions · loop/render
-   ============================================================ */
+/* VOID BREACH. one html file, no libraries, no build step.
+   everything lives here: utils, save stuff, sound, input, ui,
+   the ships, waves, bosses, collisions and the main loop.
+   if you're reading this to mod it: good luck, have fun. */
 const TAU = Math.PI*2;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -460,7 +459,7 @@ const AudioSys={
 };
 
 /* ---------------- input : keyboard+mouse+touch+gamepad, single polled state ---------------- */
-/* Easy controller mapping (standard layout, wired or wireless — same API):
+/* controllers just work, wired or wireless. the layout is:
      LEFT STICK / D-PAD ... move          RIGHT STICK ......... aim
      RT or RB or A or X ... fire (hold)   B or LB or LT ........ dash
      START ......... pause / resume
@@ -591,16 +590,18 @@ function startTX(id){return _stickPos[id].x;}function startTY(id){return _stickP
 /* Leaderboards are local-only (no accounts, no servers): top-10 per mode,
    stored in this browser. Name entry caps at 10 arcade-style characters. */
 function cleanName(n){return (n||'').toUpperCase().replace(/[^A-Z0-9 _-]/g,'').slice(0,10)||'ACE';}
-/* ---- Optional shared board (Upstash Redis REST, free tier) ----
-   Static hosting (itch.io or GitHub Pages) cannot store shared scores, so
-   this needs one tiny free backend. Setup (~5 min, no player accounts):
-     1. Sign up at upstash.com, create a Redis database (free tier is plenty).
-     2. From its dashboard copy the REST URL and REST TOKEN.
-     3. Paste them into ONLINE below and re-upload this file.
-   Then scores post automatically and the menu's GLOBAL section fills in.
-   Leave url:'' and the game runs 100% offline on local boards only.
-   NOTE: the token ships in this public file, so anyone could spam the board.
-   Fine for playing with friends; rotate the token if abused. */
+/* ---- shared leaderboard, if you ever want one ----
+   out of the box the boards are local only. no accounts, no servers,
+   scores just live in your own browser. that's fine for most people.
+   if you want one board for everybody, you'll need somewhere to put it,
+   because a static page can't save stuff by itself. easiest way i found:
+   a free upstash redis. make an account, make a database, grab the
+   REST url + token from its dashboard and drop them into ONLINE below.
+   then scores post themselves and the GLOBAL bit on the menu fills in.
+   leave it blank and the game never touches the network at all.
+   heads up though: whatever you paste here ships inside this file for
+   anyone to read, so don't reuse a token that guards anything you care
+   about. separate throwaway database, rotate it if the board gets trashed. */
 const ONLINE={url:'',token:''};
 const Net={
   ok(){return !!(ONLINE.url&&ONLINE.token);},
